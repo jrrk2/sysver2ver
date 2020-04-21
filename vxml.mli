@@ -203,6 +203,7 @@ and xmlattr = {
     modulexml: (string*(string*rw list*(string*typetable_t ref) list)) list ref;
     tmpvar: (string*(string*typetable_t)) list ref;
     tmpasgn: (string*rw) list ref;
+    dumpelem: bool ref;
 }
 and rw =
 | UNKNOWN
@@ -229,7 +230,7 @@ and rw =
 | ASEL of rw list
 | SNITM of string * rw list
 | ASGN of bool * string * rw list
-| ARITH of arithop * rw list
+| ARITH of string * arithop * rw list
 | LOGIC of logop * rw list
 | CMP of cmpop * rw list
 | FRF of string * string * rw list
@@ -256,7 +257,7 @@ and rw =
 | CS of string * rw list
 | CSITM of string * rw list
 | WHL of rw list
-| FORSTMT of (string * string * cmpop * rw * (int * cexp) * (int * cexp) * (int * cexp) * rw list)
+| FORSTMT of (string * string * cmpop * rw * (int * cexp) * rw * rw * rw list)
 | ARG of rw list
 | DSPLY of string * string * rw list
 | FILS of string * rw list
@@ -272,6 +273,7 @@ and rw =
 | COMB
 | MODPORTFTR of string * string
 | TYPETABLE of typetable_t array
+| SLCSEL of string * int * rw list
 
 type itms = { 
   io: (string*(string*typetable_t*dirop*string*(int*cexp) list)) list ref;
@@ -325,6 +327,7 @@ val itmopt : rw list option ref
 val ntlopt : rw list option ref
 val xmlopt : rw option ref
 val forlst : (rw * rw * rw list) list ref
+val forlst' : rw list list ref
 val ternlst : (rw * rw * rw * rw) list ref
 val widthlst : rw list ref
 val smpothlst : rw list ref
@@ -356,7 +359,7 @@ val simplify_exp' : rw -> (string * (string * typetable_t)) list * rw
 val simplify_asgn : bool -> xmlattr -> rw -> rw -> rw list
 val jump_opt : string -> rw list -> rw
 val fortailmatch : rw -> rw list -> bool
-val needed : itms -> token*string -> token list
+val needed : token list list ref -> itms -> token*string -> token list
 val readxml : string -> int * (int * int) * Xml.xml
 val rw' : xmlattr -> Xml.xml -> rw
 val rewrite : Xml.xml list ref -> string -> int * (int * int) * Xml.xml * rw
