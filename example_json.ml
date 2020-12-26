@@ -2,21 +2,7 @@
 ocamlfind ocamlopt -o example_json example_json.ml -package yojson -linkpkg
 *)
 
-let (json: Yojson.Basic.t) =
-`Assoc
-  [("creator",
-    `String "Yosys 0.9 (git sha1 UNKNOWN, clang 12.0.0 -fPIC -Os)");
-   ("modules",
-    `Assoc
-      [("timer",
-        `Assoc
-          [("attributes",
-            `Assoc
-              [("cells_not_processed", `Int 1);
-               ("src", `String "timer.v:22")]);
-           ("ports",
-            `Assoc
-              [("rdy",
+let port_lst = [("rdy",
                 `Assoc
                   [("direction", `String "output"); ("bits", `List [`Int 2])]);
                ("clk",
@@ -24,10 +10,9 @@ let (json: Yojson.Basic.t) =
                   [("direction", `String "input"); ("bits", `List [`Int 3])]);
                ("reset",
                 `Assoc
-                  [("direction", `String "input"); ("bits", `List [`Int 4])])]);
-           ("cells",
-            `Assoc
-              [("$sub$timer.v:31$2",
+                  [("direction", `String "input"); ("bits", `List [`Int 4])])]
+
+let cell = ("$sub$timer.v:31$2",
                 `Assoc
                   [("hide_name", `Int 1); ("type", `String "$sub");
                    ("parameters",
@@ -64,15 +49,14 @@ let (json: Yojson.Basic.t) =
                            `Int 24; `Int 25; `Int 26; `Int 27; `Int 28;
                            `Int 29; `Int 30; `Int 31; `Int 32; `Int 33;
                            `Int 34; `Int 35; `Int 36; `Int 37; `Int 38;
-                           `Int 39; `Int 40])])])]);
-           ("netnames",
-            `Assoc
-              [("$0\\count[4:0]",
+                           `Int 39; `Int 40])])])
+
+let nets = ("$0\\count[4:0]",
                 `Assoc
                   [("hide_name", `Int 1);
                    ("bits",
                     `List [`Int 41; `Int 42; `Int 43; `Int 44; `Int 45]);
-                   ("attributes", `Assoc [("src", `String "timer.v:27")])]);
+                   ("attributes", `Assoc [("src", `String "timer.v:27")])]) ::
                ("$sub$timer.v:31$2_Y",
                 `Assoc
                   [("hide_name", `Int 1);
@@ -84,23 +68,51 @@ let (json: Yojson.Basic.t) =
                        `Int 27; `Int 28; `Int 29; `Int 30; `Int 31; `Int 32;
                        `Int 33; `Int 34; `Int 35; `Int 36; `Int 37; `Int 38;
                        `Int 39; `Int 40]);
-                   ("attributes", `Assoc [("src", `String "timer.v:31")])]);
+                   ("attributes", `Assoc [("src", `String "timer.v:31")])]) ::
                ("clk",
                 `Assoc
                   [("hide_name", `Int 0); ("bits", `List [`Int 3]);
-                   ("attributes", `Assoc [("src", `String "timer.v:22")])]);
+                   ("attributes", `Assoc [("src", `String "timer.v:22")])]) ::
                ("count",
                 `Assoc
                   [("hide_name", `Int 0);
                    ("bits", `List [`Int 5; `Int 6; `Int 7; `Int 8; `Int 2]);
-                   ("attributes", `Assoc [("src", `String "timer.v:24")])]);
+                   ("attributes", `Assoc [("src", `String "timer.v:24")])]) ::
                ("rdy",
                 `Assoc
                   [("hide_name", `Int 0); ("bits", `List [`Int 2]);
-                   ("attributes", `Assoc [("src", `String "timer.v:22")])]);
+                   ("attributes", `Assoc [("src", `String "timer.v:22")])]) ::
                ("reset",
                 `Assoc
                   [("hide_name", `Int 0); ("bits", `List [`Int 4]);
-                   ("attributes", `Assoc [("src", `String "timer.v:22")])])])])])];;
+                   ("attributes", `Assoc [("src", `String "timer.v:22")])]) :: []
 
-let dump x = Yojson.Basic.to_file "example_json.json" x;;
+let module_itm ports cells nets = 
+("timer",
+        `Assoc
+          [("attributes",
+            `Assoc
+              [("cells_not_processed", `Int 1);
+               ("src", `String "timer.v:22")]);
+           ("ports",
+            `Assoc
+              ports);
+           ("cells",
+            `Assoc
+              cells);
+           ("netnames",
+            `Assoc
+              nets)])
+;;
+
+let json modlst =
+`Assoc
+  [("creator",
+    `String "sysver2ver");
+   ("modules",
+    `Assoc
+      modlst)];;
+
+let x = json [module_itm port_lst [cell] nets];;
+
+let dump = Yojson.Basic.to_file "example_json.json" x;;
