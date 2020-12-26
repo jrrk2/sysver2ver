@@ -115,7 +115,7 @@ type cexp =
 | SHEX of int
 | STRING of string
 | FLT of float
-| BIGINT of Big_int.big_int
+| BIGINT of Int64.t
 
 type stage =
 | FIRSTG
@@ -436,14 +436,12 @@ let expandbraket lo hi fn = Array.to_list (Array.init (hi-lo+1) (fun ix -> fn ("
        
 let dbg i ch h = if false then print_endline (string_of_int i^":"^String.make 1 ch^":"^string_of_int h)
 
-let hex_to_bigint s = let rslt = ref Big_int.zero_big_int in String.iter (function
-| '0'..'9' as ch -> rslt := Big_int.add_int_big_int (int_of_char ch - int_of_char '0') (Big_int.mult_int_big_int 16 !rslt)
-| 'a'..'f' as ch -> rslt := Big_int.add_int_big_int (int_of_char ch - int_of_char 'a' + 10) (Big_int.mult_int_big_int 16 !rslt)
+let hex_to_bigint s = let rslt = ref 0L in String.iter (function
+| '0'..'9' as ch -> rslt := Int64.add (Int64.of_int (int_of_char ch - int_of_char '0')) (Int64.mul 16L !rslt)
+| 'a'..'f' as ch -> rslt := Int64.add (Int64.of_int (int_of_char ch - int_of_char 'a' + 10)) (Int64.mul 16L !rslt)
 | ch -> failwith (String.make 1 ch)) s; !rslt
 
-let rec hex_of_bigint w n =
-let (q,r) = Big_int.quomod_big_int n (Big_int.big_int_of_int 16) in
-(if (w > 4 && Big_int.sign_big_int q > 0) then hex_of_bigint (w-4) q else "")^String.make 1 ("0123456789abcdef".[Big_int.int_of_big_int r])
+let rec hex_of_bigint w n = Printf.sprintf "%Lx" n
 
 let hex_to_ascii len str =
   let bytes = String.length str in
@@ -466,7 +464,7 @@ let hex_to_ascii len str =
 let decode len str =
   decopt := Some (len,str);
   try STRING (Bytes.to_string (hex_to_ascii len str))
-  with err -> let num = hex_to_bigint str in try HEX(Big_int.int_of_big_int num) with err -> BIGINT num
+  with err -> let num = hex_to_bigint str in try HEX(Int64.to_int num) with err -> BIGINT num
 
 let cexp exp = match exp.[0] with
 | '"' -> let n = String.length exp - 2 in let s = String.sub exp 1 n in (n, STRING s)
@@ -711,7 +709,7 @@ let rec simplify_exp attr = function
 | SEL (orig, (oth :: (CNST (_, HEX lo') as lo) :: (CNST (_, HEX wid') as wid) :: [])) ->
         let idx' = lo'+wid' in
         let smpl = simplify_exp attr oth in
-        let t = ascii_exp oth idx' in
+        let t = Bytes.to_string (ascii_exp oth idx') in
         let typ' = (BASDTYP, "logic", TYPRNG(HEX(idx'-1),HEX 0), []) in
         let tmp = VRF (t, typ', []) in
         if not (List.mem_assoc t !(attr.tmpvar)) then
@@ -835,9 +833,9 @@ let rec cadd = function
 | FLT f :: _ -> ERR "addflt"
 | STRING _ :: tl -> ERR "addstr"
 | BIGINT n :: [] -> BIGINT n
-| BIGINT n :: BIGINT m :: tl -> cadd (BIGINT (Big_int.add_big_int n m) :: tl)
-| (HEX n | SHEX n) :: BIGINT m :: tl -> cadd (BIGINT (Big_int.add_big_int (Big_int.big_int_of_int n) m) :: tl)
-| BIGINT n :: (HEX m | SHEX m) :: tl -> cadd (BIGINT (Big_int.add_big_int n (Big_int.big_int_of_int m)) :: tl)
+| BIGINT n :: BIGINT m :: tl -> cadd (BIGINT (Int64.add n m) :: tl)
+| (HEX n | SHEX n) :: BIGINT m :: tl -> cadd (BIGINT (Int64.add (Int64.of_int n) m) :: tl)
+| BIGINT n :: (HEX m | SHEX m) :: tl -> cadd (BIGINT (Int64.add n (Int64.of_int m)) :: tl)
 | BIN 'x' :: tl -> cadd (BIN 'x' :: tl)
 | BIN _ :: tl -> cadd (BIN 'x' :: tl)
 | HEX n :: HEX m :: tl -> cadd (HEX (n+m) :: tl)
@@ -894,7 +892,7 @@ let tokencnv indent = function
 | NUM (BIN n) -> (String.make 1 n)
 | NUM (HEX n) -> (string_of_int n)
 | NUM (SHEX n) -> (string_of_int n)
-| NUM (BIGINT n) -> (Big_int.string_of_big_int n)
+| NUM (BIGINT n) -> (Int64.to_string n)
 | NUM (STRING s) -> ("\""^String.escaped s^"\"")
 | NUM (FLT f) -> (string_of_float f)
 | NUM (ERR err) -> ("NumberError:"^err)
@@ -1232,7 +1230,7 @@ let rec rw' attr = function
     let typtable = match rw' attr (List.hd rlst) with TYPETABLE typarr -> typarr | _ -> failwith "netlist" in
     let uniq = ref [] in
     attr.instances := List.sort compare (List.map (function
-        | Xml.Element (kw, ("fl", _) :: ("name", kind) :: ("origName", orignam) :: _, _) ->
+        | Xml.Element (kw, ("fl", _) :: ("loc", _) :: ("name", kind) :: ("origName", orignam) :: _, _) ->
             let uniq' = uniqnam 0 orignam uniq in uniq := (kind,uniq') :: !uniq;
             (kind, ((match kw with
             | "module" -> MODULE
@@ -1249,11 +1247,11 @@ let rec rw' attr = function
     let opt2 = optitm' true opt1 in
     ntlopt := Some opt2;
     NTL opt2
-| Xml.Element ("var", [("fl", origin); ("name", nam); ("dtype_id", tid); ("dir", dir); ("vartype", typ); ("origName", nam')], xlst) ->
+| Xml.Element ("var", [("fl", origin); ("loc", _); ("name", nam); ("dtype_id", tid); ("dir", dir); ("vartype", typ); ("origName", nam')], xlst) ->
     let typ' = attr.typetable.(int_of_string tid) in
     attr.names := (nam, ref typ') :: !(attr.names);
     IO (origin, [nam], typ', dirop dir, typ, List.map (rw' attr) xlst)
-| Xml.Element ("var", [("fl", origin); ("name", nam); ("dtype_id", tid); ("vartype", ("ifaceref" as typ)); ("origName", nam')], []) ->
+| Xml.Element ("var", [("fl", origin); ("loc", _); ("name", nam); ("dtype_id", tid); ("vartype", ("ifaceref" as typ)); ("origName", nam')], []) ->
     let (vif, sub) = chkvif nam in
     let nam' = if vif then sub else nam in
     let rslt = match attr.typetable.(int_of_string tid) with
@@ -1273,25 +1271,25 @@ let rec rw' attr = function
                        print_endline (dumptab typ'^":"^dumptab !(List.assoc nam' !(attr.names)));
                    if vif then VAR (origin, [sub], typ', typ) else IO (origin, [nam], typ', Dinam dir, "logic", [])
                | oth -> typopt := Some oth; failwith ("typopt;;587: "^dumptab oth) in rslt
-| Xml.Element ("var", [("fl", origin); ("name", nam); ("dtype_id", tid); ("vartype", typ); ("origName", nam')], []) ->
+| Xml.Element ("var", [("fl", origin); ("loc", _); ("name", nam); ("dtype_id", tid); ("vartype", typ); ("origName", nam')], []) ->
                let pat = "__Vconcswap" in
                let l = String.length nam and l' = String.length pat in
                let anchor = if l > l' && String.sub nam 0 l' = pat then attr.anchor else origin in
                VAR (anchor, [nam], attr.typetable.(int_of_string tid), typ)
-| Xml.Element ("var", [("fl", origin); ("name", nam); ("dtype_id", tid); ("vartype", typ); ("origName", nam')],
-               [Xml.Element ("const", [("fl", _); ("name", _); ("dtype_id", cid)], []) as lev]) ->
+| Xml.Element ("var", [("fl", origin); ("loc", _); ("name", nam); ("dtype_id", tid); ("vartype", typ); ("origName", nam')],
+               [Xml.Element ("const", [("fl", _); ("loc", _); ("name", _); ("dtype_id", cid)], []) as lev]) ->
                              IVAR (origin, nam, attr.typetable.(int_of_string tid), [rw' attr lev], int_of_string cid)
-| Xml.Element ("var", [("fl", origin); ("name", nam); ("dtype_id", tid); ("vartype", typ); ("origName", nam')],
+| Xml.Element ("var", [("fl", origin); ("loc", _); ("name", nam); ("dtype_id", tid); ("vartype", typ); ("origName", nam')],
 
 	       [Xml.Element ("initarray", [("fl", _); ("dtype_id", cid)], initlst)]) ->
                              IVAR (origin, nam, attr.typetable.(int_of_string tid), List.map (rw' attr) initlst, int_of_string cid)
-| Xml.Element ("const", [("fl", _); ("name", value); ("dtype_id", tid)], []) -> CNST (cexp value)
-| Xml.Element ("contassign", [("fl", origin); ("dtype_id", tid)], xlst) -> CA (origin, List.map (rw' attr) xlst)
+| Xml.Element ("const", [("fl", _); ("loc", _); ("name", value); ("dtype_id", tid)], []) -> CNST (cexp value)
+| Xml.Element ("contassign", [("fl", origin); ("loc", _); ("dtype_id", tid)], xlst) -> CA (origin, List.map (rw' attr) xlst)
 | Xml.Element ("not"|"negate"|"lognot" as op, [("fl", origin); ("dtype_id", tid)], xlst) ->
 	       UNRY (unaryop op, List.map (rw' attr) xlst)
 | Xml.Element ("extend"|"extends" as op, [("fl", origin); ("dtype_id", tid); ("width", w); ("widthminv", wm)], xlst) ->
 	       UNRY (extendop attr.anchor (int_of_string w) (int_of_string wm) op, List.map (rw' attr) xlst)
-| Xml.Element ("varref", [("fl", _); ("name", nam); ("dtype_id", tid)], xlst) ->
+| Xml.Element ("varref", [("fl", _); ("loc", _); ("name", nam); ("dtype_id", tid)], xlst) ->
                VRF (snd (chkvif nam), attr.typetable.(int_of_string tid), List.map (rw' attr) xlst)
 | Xml.Element ("instance", [("fl", origin); ("name", nam); ("defName", mangled); ("origName", _)], xlst) ->
                let instkind,dnam = if List.mem_assoc mangled !(attr.instances) then
@@ -1335,26 +1333,26 @@ let rec rw' attr = function
                PORT (origin, nam, dirop dir, List.map (rw' attr) xlst)
 | Xml.Element ("port", [("fl", origin); ("name", nam); ("portIndex", idx)], xlst) -> let (vif,sub) = chkvif nam in
                PORT (origin, sub, Dvif (ref sub), List.map (rw' attr) xlst)
-| Xml.Element ("sel", [("fl", origin); ("dtype_id", tid)], xlst) -> SEL (origin, List.map (rw' attr) xlst)
+| Xml.Element ("sel", [("fl", origin); ("loc", _); ("dtype_id", tid)], xlst) -> SEL (origin, List.map (rw' attr) xlst)
 | Xml.Element ("arraysel", [("fl", origin); ("dtype_id", tid)], xlst) -> ASEL (List.map (rw' attr) xlst)
-| Xml.Element ("always", [("fl", origin)], xlst) -> ALWYS (origin, List.map (rw' {attr with anchor=origin}) xlst)
-| Xml.Element ("sentree", [("fl", origin)], xlst) -> SNTRE (List.map (rw' attr) xlst)
-| Xml.Element ("senitem", [("fl", origin); ("edgeType", etyp)], xlst) -> SNITM (etyp, List.map (rw' attr) xlst)
+| Xml.Element ("always", [("fl", origin); ("loc", _)], xlst) -> ALWYS (origin, List.map (rw' {attr with anchor=origin}) xlst)
+| Xml.Element ("sentree", [("fl", origin); ("loc", _)], xlst) -> SNTRE (List.map (rw' attr) xlst)
+| Xml.Element ("senitem", [("fl", origin); ("loc", _); ("edgeType", etyp)], xlst) -> SNITM (etyp, List.map (rw' attr) xlst)
 | Xml.Element ("begin", [("fl", origin); ("name", namedblk)], xlst) ->
     let anonblk = let l = String.length namedblk and pat = "unnamedblk" in let l' = String.length pat in 
         (if l > l' && String.sub namedblk 0 l' = pat then pat else namedblk)^"_"^string_of_int !namedcnt in
     incr namedcnt;
     while_opt origin (Some anonblk) (List.map (rw' attr) xlst)
 | Xml.Element ("begin", [("fl", origin)], xlst) -> while_opt origin None (List.map (rw' attr) xlst)
-| Xml.Element (("assign"|"assigndly") as dly, [("fl", origin); ("dtype_id", tid)], hd::tl::[]) ->
+| Xml.Element (("assign"|"assigndly") as dly, [("fl", origin); ("loc", _); ("dtype_id", tid)], hd::tl::[]) ->
     let src = rw' attr hd and dst = rw' attr tl in
     let smpl = match simplify_asgn (dlyenc dly) attr dst src with hd :: [] -> hd | lst -> XML lst in
     smpl
 | Xml.Element ("if", [("fl", origin)], xlst) -> IF (origin, List.map (rw' attr) xlst)
-| Xml.Element ("add"|"sub"|"mul"|"muls" as op, [("fl", _); ("dtype_id", tid)], xlst) -> ARITH (arithop op, List.map (rw' attr) xlst)
+| Xml.Element ("add"|"sub"|"mul"|"muls" as op, [("fl", _); ("loc", _); ("dtype_id", tid)], xlst) -> ARITH (arithop op, List.map (rw' attr) xlst)
 | Xml.Element ("and"|"redand"|"or"|"redor"|"xor"|"redxor"|"xnor"|"redxnor"|"shiftl"|"shiftr"|"shiftrs" as log,
-               [("fl", _); ("dtype_id", tid)], xlst) -> LOGIC (logop log, List.map (rw' attr) xlst)
-| Xml.Element ("eq"|"neq"|"gt"|"gts"|"gte"|"gtes"|"eqwild"|"neqwild"|"ltes"|"lte"|"lt"|"lts" as cmp, [("fl", _); ("dtype_id", tid)], xlst) ->
+               [("fl", _); ("loc", _); ("dtype_id", tid)], xlst) -> LOGIC (logop log, List.map (rw' attr) xlst)
+| Xml.Element ("eq"|"neq"|"gt"|"gts"|"gte"|"gtes"|"eqwild"|"neqwild"|"ltes"|"lte"|"lt"|"lts" as cmp, [("fl", _); ("loc", _); ("dtype_id", tid)], xlst) ->
     CMP (cmpop cmp, List.map (rw' attr) xlst)
 | Xml.Element ("initial"|"final" as action, [("fl", origin)], xlst) -> INIT (origin, action, List.map (rw' attr) xlst)
 | Xml.Element ("package", [("fl", orig); ("name", nam); ("origName", nam')], xlst) -> PKG (orig, nam, List.map (rw' attr) xlst)
@@ -1366,10 +1364,10 @@ let rec rw' attr = function
 | Xml.Element ("jumpgo", [("fl", origin)], xlst) -> JMPG (origin, List.map (rw' attr) xlst)
 | Xml.Element ("concat", [("fl", origin); ("dtype_id", tid)], xlst) -> CAT (origin, List.map (rw' attr) xlst)
 | Xml.Element ("cvtpackstring", [("fl", origin); ("dtype_id", tid)], xlst) -> CPS (origin, List.map (rw' attr) xlst)
-| Xml.Element ("cond", [("fl", origin); ("dtype_id", tid)], xlst) -> CND (origin, List.map (rw' attr) xlst)
+| Xml.Element ("cond", [("fl", origin); ("loc", _); ("dtype_id", tid)], xlst) -> CND (origin, List.map (rw' attr) xlst)
 | Xml.Element ("time", [("fl", origin); ("dtype_id", tid)], []) -> TIM (origin)
 | Xml.Element ("sformatf", [("fl", _); ("name", fmt); ("dtype_id", tid)], xlst) -> SFMT (fmt, List.map (rw' attr) xlst)
-| Xml.Element ("module", ("fl", origin) :: ("name", nam) :: ("origName", _) :: attr', xlst) ->
+| Xml.Element ("module", ("fl", origin) :: ("loc", _) :: ("name", nam) :: ("origName", _) :: attr', xlst) ->
     let (_,nam') = List.assoc nam !(attr.instances) in
     let attr' = {attr with anchor=origin;names=ref [];tmpvar=ref []} in
     let xlst' = List.map (rw' attr') xlst in
@@ -1418,7 +1416,7 @@ let rec rw' attr = function
     TYP(idx,(IFCRFDTYP nam, nam, TYPNONE, xlst'))
 | Xml.Element ("modport", [("fl", origin); ("name", port)], xlst) -> IMP (origin, port, List.map (rw' attr) xlst)
 | Xml.Element ("modportvarref", [("fl", origin); ("name", member); ("direction", dir)], xlst) -> IMRF (origin, member, dirop dir, List.map (rw' attr) xlst)
-| Xml.Element ("basicdtype"|"structdtype"|"uniondtype" as dtyp', ("fl", _) :: ("id", num) :: rnglst, xlst) ->
+| Xml.Element ("basicdtype"|"structdtype"|"uniondtype" as dtyp', ("fl", _) :: ("loc", _) :: ("id", num) :: rnglst, xlst) ->
     let xlst' = List.map (rw' attr) xlst and idx = int_of_string num and dtyp = typenc dtyp' in
     (match rnglst with
       | ("name", nam) :: tl ->
@@ -1441,7 +1439,7 @@ let rec rw' attr = function
     List.iter (traverse' "") xlst';
     close_out fd;
     CELLS(xlst', attr)
-| Xml.Element ("cell", [("fl", origin); ("name", nam); ("submodname", subnam); ("hier", hier)], xlst) ->
+| Xml.Element ("cell", [("fl", origin); ("loc", _); ("name", nam); ("submodname", subnam); ("hier", hier)], xlst) ->
     let (_,subnam') = if List.mem_assoc subnam !(attr.instances) then
         List.assoc subnam !(attr.instances)
     else
@@ -1459,7 +1457,7 @@ let rec rw' attr = function
 | Xml.Element ("testplusargs", [("fl", origin); ("name", nam); ("dtype_id", tid)], xlst) ->
     TPLSRGS(origin, nam, int_of_string tid, List.map (rw' attr) xlst)
 | Xml.Element ("modportftaskref", [("fl", origin); ("name", nam)], []) -> MODPORTFTR (origin, nam)
-| Xml.Element ("typetable", [("fl", origin)], xlst) ->
+| Xml.Element ("typetable", [("fl", origin); ("loc", _)], xlst) ->
     let types = List.map (fun itm -> (function TYP(ix,t) -> (ix,t) | _ -> (0,(UNKDTYP, "",TYPNONE, []))) (rw' attr itm)) xlst in
     let max = fold1 (max) (List.map (function (ix,_) -> ix) types) in
     let typarr = Array.make (max+1) (UNKDTYP, "", TYPNONE, []) in
@@ -1592,10 +1590,12 @@ let rec expr modul = function
          (VRF (id, typ', []) :: [])) ::
         (CNST _ as expr1) ::[])) ::
       (CNST _ as expr2) :: (CNST _ as expr3) :: [])) ->
+(*
   let exp' = LOGIC (Lshiftl,
        (UNRY (Uextend (n, n'),
          (VRF (id, typ', []) :: [])) ::
         (expr1) ::[])) in
+*)
   expr modul (SEL(orig, LOGIC (Lshiftl, VRF (id, typ', []) :: expr1 :: []) :: expr2 :: expr3 :: []))
 | SEL (orig, (CNST (32, SHEX n) :: CNST (32, (HEX lo'|SHEX lo')) :: CNST (32, (HEX wid'|SHEX wid')) :: [])) ->
     SIZED (wid', SHEX (n asr lo')) :: []

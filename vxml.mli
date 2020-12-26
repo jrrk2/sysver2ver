@@ -115,7 +115,7 @@ type cexp =
 | SHEX of int
 | STRING of string
 | FLT of float
-| BIGINT of Big_int.big_int
+| BIGINT of int64
 
 type token =
 | INVALID
@@ -338,8 +338,8 @@ val hierarchy : (string, (string * string) list) Hashtbl.t
 val functable : (string, string * typetable_t * rw list * itms) Hashtbl.t
 val modtokens : (string, token list * token list * token list) Hashtbl.t
 
-val hex_of_bigint : int -> Big_int.big_int -> string
-val hex_to_bigint : string -> Big_int.big_int
+val hex_of_bigint : int -> Int64.t -> string
+val hex_to_bigint : string -> Int64.t
 val hex_to_ascii : int -> string -> bytes
 val decode : int -> string -> cexp
 val cadd : cexp list -> cexp
