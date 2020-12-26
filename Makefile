@@ -1,7 +1,7 @@
 all: vxml vxmlmain
 
-vxml: vxml.mli vxml.ml
-	ocamlmktop -g -I `ocamlfind query xml-light` unix.cma xml-light.cma vxml.mli vxml.ml -o $@
+vxml: vxml.mli vxml.ml example_json.ml
+	ocamlfind ocamlmktop -g -package yojson -package xml-light unix.cma vxml.mli example_json.ml vxml.ml -o $@ -linkpkg
 
 test:
 	./vxml

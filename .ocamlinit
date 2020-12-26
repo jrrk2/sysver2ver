@@ -3,6 +3,7 @@
 #print_length 1000000;;
 
 open Vxml
+open Example_json
 
 (*
 let xmlf = "../picorv32/xml_verilator_dir/Vpicorv32_wrapper.xml";;
@@ -59,7 +60,7 @@ let xmlf = "../swerv_eh1/obj_dir/Vswerv_wrapper.xml";;
 let xmlf = "../ibex/verilator/obj_dir/Vibex_defines.xml";;
 *)
 
-let xmlf = "/Users/jrrk/regression/ivtest/fpga_tests/obj_dir/Vtimer.xml";;
+let xmlf = "obj_dir/Vtimer.xml";;
 
 let errlst = ref [];;
 let (line,range,rwxml,xml,mods,toplst,topattr) = Vxml.translate errlst xmlf;;
