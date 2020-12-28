@@ -2,10 +2,10 @@
 #print_depth 100000;;
 #print_length 1000000;;
 
-open Printf
 open Vxml
 open Template_ilang
 
 let xmlf = "obj_dir/Vtimer.xml";;
-let ilang = open_out "timer_verilator.ilang" in
+let xmlf = "obj_dir/Vprocess.xml";;
+let ilang = open_out "process_verilator.ilang" in
 let _ = iter ilang xmlf in close_out ilang;;

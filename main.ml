@@ -1,8 +1,9 @@
-open Vxml;;
+open Vxml
+open Template_ilang
 
-let errlst = ref [] in
-Printexc.record_backtrace true;
-let (line,range,rwxml,xml,mods,toplst,topattr) = Vxml.translate (ref []) Sys.argv.(1) in
+let _ = Printexc.record_backtrace true;;
+let ilang = open_out Sys.argv.(2) in
+let _ = iter ilang Sys.argv.(1) in close_out ilang;;
 List.iter (fun l -> Printf.printf "%d:" (List.length l)) [
 !exprothlst;
 !stmtothlst;
@@ -16,6 +17,5 @@ List.flatten (!csothlst);
 List.flatten (!posneglst);
 ];
 Printf.printf "%d\n" (List.length !errlst);
-if (line > 0) then Printf.printf "%s:line %d:char %d-%d\n" Sys.argv.(1) line (fst range) (snd range);
 ()
 
