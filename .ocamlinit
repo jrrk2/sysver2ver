@@ -3,71 +3,16 @@
 #print_length 1000000;;
 
 open Vxml
-open Example_json
-
-(*
-let xmlf = "../picorv32/xml_verilator_dir/Vpicorv32_wrapper.xml";;
-let xmlf = "/local/scratch/jrrk2/ariane-vcs-regression/ariane/obj_dir/Vdmi_jtag.xml";;
-let xmlf = "/local/scratch/jrrk2/ariane-vcs-regression/ariane/work-xml/Variane_testharness.xml";;
-let xmlf = "obj_dir/Vjtag_xilinx_fixed.xml";;
-let xmlf = "obj_dir/Vdmi_testharness_0.xml";;
-let xmlf = "obj_dir/Vblif01g.xml";;
-let xmlf = "obj_dir/Vonehot16.xml";;
-let xmlf = "obj_dir/Vinterface_test.xml";;
-let xmlf = "obj_dir/Vsimple.xml";;
-let xmlf = "obj_dir/Vchip.xml";;
-let xmlf = "obj_dir/Vmaster_opt.xml";;
-let xmlf = "obj_dir/Varray2d.xml";;
-let xmlf = "obj_dir/Vmaster.xml";;
-let xmlf = "obj_dir/Vpicorv32_ref.xml";;
-let xmlf = "obj_dir/Vpicorv32_pcpi_mul.xml";;
-let xmlf = "obj_dir/Vreduceor.xml";;
-let xmlf = "obj_dir/Vreset_transform.xml";;
-let xmlf = "obj_dir/Vaccum.xml";;
-let xmlf = "obj_dir/Vdecoder.xml";;
-let xmlf = "obj_dir/Valways_test.xml";;
-let xmlf = "obj_dir/Vtilde.xml";;
-let xmlf = "obj_dir/Vtestbench_golden.xml";;
-let xmlf = "obj_dir/Vpicorv32_wrapper.xml";;
-let xmlf = "../ariane/obj_dir/Vstore_buffer.xml";;
-let xmlf = "../ariane/obj_dir/Vamo_alu.xml";;
-let xmlf = "../ariane/obj_dir/Vmiss_handler.xml";;
-let xmlf = "../ariane/obj_dir/Vbtb.xml";;
-let xmlf = "../ariane/obj_dir/Vstd_icache.xml";;
-let xmlf = "obj_dir/Vbigint.xml";;
-let xmlf = "obj_dir/Vdebug_rom.xml";;
-let xmlf = "obj_dir/Vcaseinside.xml";;
-let xmlf = "../ariane/obj_dir/Vdm_top.xml";;
-let xmlf = "obj_dir/Vaxi_slave_connect_example.xml";;
-let xmlf = "obj_dir/Vinterface_array.xml";;
-let xmlf = "obj_dir/Vsimple.xml";;
-let xmlf = "obj_dir/Vinterface1.xml";;
-let xmlf = "vout/Vinterface1.xml";;
-let xmlf = "obj_dir/Vsys.xml";;
-let xmlf = "obj_dir/Vgenvarexample.xml";;
-let xmlf = "../ariane/obj_dir/Vbug1.xml";;
-let xmlf = "../ariane/obj_dir/Vbug3.xml";;
-let xmlf = "obj_dir/Vunpacked.xml";;
-let xmlf = "obj_dir/Vaxi4_memory.xml";;
-let xmlf = "obj_dir/Vinitreg.xml";;
-let xmlf = "obj_dir/Vunpacked.xml";;
-let xmlf = "../ariane/obj_dir/Valu.xml";;
-let xmlf = "obj_dir/Vforstmt.xml";;
-let xmlf = "obj_dir/Vextend.xml";;
-let xmlf = "obj_dir/Vnested.xml";;
-let xmlf = "../ariane/obj_dir/Variane_testharness.xml";;
-let xmlf = "../swerv_eh1/obj_dir/Vswerv_wrapper.xml";;
-let xmlf = "../ibex/verilator/obj_dir/Vibex_defines.xml";;
-*)
+open Template_ilang
 
 let xmlf = "obj_dir/Vtimer.xml";;
 
 let errlst = ref [];;
 let (line,range,rwxml,xml,mods,toplst,topattr) = Vxml.translate errlst xmlf;;
 
-let f k = Hashtbl.find Vxml.modules_opt k;;
+let f k = Hashtbl.find Vxml.modules k;;
 let p k = Hashtbl.find Vxml.packages k;;
-let d f = Vxml.debug f (Hashtbl.find Vxml.modules_opt f)
+let d f = Vxml.debug f (Hashtbl.find Vxml.modules f)
 let h k = Hashtbl.find Vxml.hierarchy k;;
 
 let othcnt = (
@@ -85,16 +30,36 @@ List.length !typothlst,
 List.length !memothlst
 );;
 
-let oldmod = ref [];;
-Hashtbl.iter (fun k _ -> oldmod := k :: !oldmod) Vxml.modules;;
-let oldmod = !oldmod;;
+let dumps s = "\""^s^"\""
+let dumpstrlst lst = "["^String.concat ";\n\t" (List.map dumps lst)^"]"
 
-(*
-let (x,modul) = Hashtbl.find modules "plic_find_max";;
-let wlst = ref [];;
-List.iter (fun (id, (origin, typ', kind', n)) -> wlst := (id,typ',findmembers' typ') :: !wlst)  !(modul.v);;
-wlst;;
-*)
+let rec dumpdir = function
+| Dinput -> "input"
+| Doutput -> "output"
+| Dinout -> "inout"
+| Dvif s -> "Dvif "^dumps !s
+| Dinam str -> "Dinam "^dumps str
+| Dport(str1, int1, dirop, str2, str_lst) ->
+     "Dport("^dumps str1 ^", "^ string_of_int int1 ^", "^ dumpdir dirop ^", "^ dumps str2 ^", "^ dumpstrlst str_lst^")"
+| Dunknown -> "Dunknown"
 
-let xml = match !itmopt with Some x -> x | None -> [];;
-let xml' = optitm' false xml;;
+let wref = ref [];;
+let err = ref "";;
+let flt' oth = String.concat ":" (List.map (tokencnv (ref 0)) oth);;
+let _ = Hashtbl.iter (fun k (_,modul) -> 
+let iolst = List.map (fun (io, (origin, typ', dir, kind', lst)) -> 
+    (io,dumpdir dir,findmembers' typ')
+    ) !(modul.io) in
+let wlst = iolst @ List.map (fun (id, (origin, typ', kind', n)) ->
+    (id,"width",findmembers' typ')) !(modul.v) in
+wref := wlst;
+let wlst' = List.map (fun (id, dir, (rng,_,_)) -> match rng with 
+| BIT :: [] -> (1, dir, id)
+| ARNG(hi,lo) :: [] -> (hi-lo+1, dir, id)
+| oth -> err := flt' (comment oth); failwith "rng"
+) wlst in
+let cellst' = [] in
+let proclst' = [] in
+let asgnlst' = List.map (function (_, VRF(dst, typ, []), e) -> dst,flt'(expr modul e)) !(modul.ca) in
+template_ilang stdout "timer" wlst' cellst' proclst' asgnlst') Vxml.modules;;
+

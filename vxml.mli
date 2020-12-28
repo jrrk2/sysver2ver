@@ -367,3 +367,7 @@ val translate : Xml.xml list ref -> string -> int * (int * int) * rw * Xml.xml *
 val dump : bool -> string -> string * itms -> token list
 val debug : string -> string * itms -> unit
 val comment : arrtyp list -> token list
+val widmax : arrtyp list -> arrtyp list
+val widadd : arrtyp list -> arrtyp list
+val widshow : string -> 'a -> arrtyp list -> token list
+val tokencnv : int ref -> token -> string
