@@ -7,5 +7,5 @@ open Vxml
 open Template_ilang
 
 let xmlf = "obj_dir/Vtimer.xml";;
-
-let _ = iter stdout xmlf;;
+let ilang = open_out "timer_verilator.ilang" in
+let _ = iter ilang xmlf in close_out ilang;;
