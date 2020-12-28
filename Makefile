@@ -1,7 +1,7 @@
 all: vxml vxmlmain
 
 vxml: vxml.mli vxml.ml template_ilang.ml
-	ocamlfind ocamlmktop -g -package yojson -package xml-light unix.cma vxml.mli template_ilang.ml vxml.ml -o $@ -linkpkg
+	ocamlfind ocamlmktop -g -package yojson -package xml-light unix.cma vxml.mli vxml.ml template_ilang.ml -o $@ -linkpkg
 
 test:
 	./vxml
