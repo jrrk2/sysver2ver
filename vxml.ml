@@ -471,10 +471,10 @@ let decode len str =
 let cexp exp = match exp.[0] with
 | '"' -> let n = String.length exp - 2 in let s = String.sub exp 1 n in (n, STRING s)
 | _ ->
-    try Scanf.sscanf exp "%d'h%x" (fun b n -> (b, HEX n)) with err ->
-    try Scanf.sscanf exp "%d'h%s" (fun b s -> (b, decode b s)) with err ->
-    try Scanf.sscanf exp "%d'sh%x" (fun b n -> (b, SHEX n)) with err ->
-    try Scanf.sscanf exp "%d'bx" (fun b -> (b, BIN 'x')) with err ->
+    try Scanf.sscanf exp "%d&apos;h%x" (fun b n -> (b, HEX n)) with err ->
+    try Scanf.sscanf exp "%d&apos;h%s" (fun b s -> (b, decode b s)) with err ->
+    try Scanf.sscanf exp "%d&apos;sh%x" (fun b n -> (b, SHEX n)) with err ->
+    try Scanf.sscanf exp "%d&apos;bx" (fun b -> (b, BIN 'x')) with err ->
     try Scanf.sscanf exp "%d" (fun n -> (32, SHEX n)) with err ->
     try Scanf.sscanf exp "%f" (fun f -> (64, FLT f)) with err -> (-1,ERR exp)
 
