@@ -19,12 +19,21 @@
  *   $Id: process.v,v 1.1 2003/04/01 05:55:24 stevewilliams Exp $
  */
 
-module process(output reg [7:0] counter, input wire clk, input wire reset);
+module process(output reg [7:0] upcounter,
+	       output reg [7:0] downcounter,
+	       input wire 	clk,
+	       input wire 	reset);
 
    always @(posedge clk)
      if (reset)
-       counter <= 8'b0;
+       begin
+	  upcounter <= 8'b0;
+	  downcounter <= 8'b0;
+       end
      else
-       counter <= counter + 1;
+       begin
+	  upcounter <= upcounter + 1;
+	  downcounter <= downcounter - 1;
+       end
 
 endmodule // process

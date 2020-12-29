@@ -1346,17 +1346,17 @@ let rec rw' attr = function
 | Xml.Element ("always", [("fl", origin); ("loc", _)], xlst) -> ALWYS (origin, List.map (rw' {attr with anchor=origin}) xlst)
 | Xml.Element ("sentree", [("fl", origin); ("loc", _)], xlst) -> SNTRE (List.map (rw' attr) xlst)
 | Xml.Element ("senitem", [("fl", origin); ("loc", _); ("edgeType", etyp)], xlst) -> SNITM (etyp, List.map (rw' attr) xlst)
-| Xml.Element ("begin", [("fl", origin); ("name", namedblk)], xlst) ->
+| Xml.Element ("begin", [("fl", origin); ("loc", _); ("name", namedblk)], xlst) ->
     let anonblk = let l = String.length namedblk and pat = "unnamedblk" in let l' = String.length pat in 
         (if l > l' && String.sub namedblk 0 l' = pat then pat else namedblk)^"_"^string_of_int !namedcnt in
     incr namedcnt;
     while_opt origin (Some anonblk) (List.map (rw' attr) xlst)
-| Xml.Element ("begin", [("fl", origin)], xlst) -> while_opt origin None (List.map (rw' attr) xlst)
+| Xml.Element ("begin", [("fl", origin); ("loc", _)], xlst) -> while_opt origin None (List.map (rw' attr) xlst)
 | Xml.Element (("assign"|"assigndly") as dly, [("fl", origin); ("loc", _); ("dtype_id", tid)], hd::tl::[]) ->
     let src = rw' attr hd and dst = rw' attr tl in
     let smpl = match simplify_asgn (dlyenc dly) attr dst src with hd :: [] -> hd | lst -> XML lst in
     smpl
-| Xml.Element ("if", [("fl", origin)], xlst) -> IF (origin, List.map (rw' attr) xlst)
+| Xml.Element ("if", [("fl", origin); ("loc", _)], xlst) -> IF (origin, List.map (rw' attr) xlst)
 | Xml.Element ("add"|"sub"|"mul"|"muls" as op, [("fl", origin); ("loc", _); ("dtype_id", tid)], xlst) -> ARITH (origin, arithop op, List.map (rw' attr) xlst)
 | Xml.Element ("and"|"redand"|"or"|"redor"|"xor"|"redxor"|"xnor"|"redxnor"|"shiftl"|"shiftr"|"shiftrs" as log,
                [("fl", _); ("loc", _); ("dtype_id", tid)], xlst) -> LOGIC (logop log, List.map (rw' attr) xlst)
@@ -1983,7 +1983,7 @@ let rec optitm4 = function
 | FORSTMT(o,kind,cmpop,ix,strt,stop,inc,rw_lst) -> FORSTMT(o,kind,cmpop,ix,strt,stop,inc,List.map optitm4 rw_lst)
 | TASKDEF(origin, nam, rw_lst) -> TASKDEF(origin, nam, List.map optitm4 rw_lst)
 | TASKRF(origin, nam, rw_lst) -> TASKRF(origin, nam, List.map optitm4 rw_lst)
-| (ASGN _  | CNST _ | VAR _ | VRF _ | LOGIC _ | SEL _ | CMP _ | DSPLY _ | SYS _) as oth -> oth
+| (ASGN _ | CNST _ | VAR _ | VRF _ | LOGIC _ | SEL _ | CMP _ | DSPLY _ | SYS _) as oth -> oth
 | oth -> optothlst := oth :: !optothlst; failwith "optothlst4"
 
 let optitm lst =

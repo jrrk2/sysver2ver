@@ -21,6 +21,10 @@ let rec dumpdir = function
 let err = ref "";;
 let cond' = ref UNKNOWN;;
 let then' = ref UNKNOWN;;
+let then'' = ref UNKNOWN;;
+let then''' = ref UNKNOWN;;
+let then'''' = ref UNKNOWN;;
+let then''''' = ref UNKNOWN;;
 let else' = ref UNKNOWN;;
 let lft' = ref UNKNOWN;;
 let arg1' = ref UNKNOWN;;
@@ -60,25 +64,25 @@ let if_always fd cellst' rst then_stmt else_stmt =
     fprintf fd "    switch \\%s\n" rst;
     fprintf fd "      case 1'1\n";
     (match then_stmt with
-      | BGN(None, lst) -> (match lst with
-        | ASGN(_, _, lft :: rght :: []) :: [] -> let w, n = match lft with
+      | BGN(None, lst) -> List.iter (function
+        | ASGN(_, _, lft :: rght :: []) -> let w, n = match lft with
 	  | CNST (w, HEX n) -> w, bin2str w n
 	  | oth -> lft' := oth; failwith "lft'" in let dst = match rght with
 	    | VRF (id, typ, []) -> id
 	    | oth -> rght' := oth; failwith "rght'" in
 	  fprintf fd "        assign \\nxt_%s %d'%s\n" dst w n;
-	| oth -> then' := List.hd oth; failwith "then");
-      | oth -> then' := oth; failwith "then");
+	| oth -> then' := oth; failwith "then'") lst
+      | oth -> then'' := oth; failwith "then''");
     fprintf fd "      case \n";
     (match else_stmt with
-      | BGN(None, lst) -> (match lst with
-        | ASGN(_, _, lft :: rght :: []) :: [] -> let rhs = match lft with
+      | BGN(None, lst) -> List.iter (function
+        | ASGN(_, _, lft :: rght :: []) -> let rhs = match lft with
 	  | ARITH(_, op, lft' :: rght' :: []) -> extract cellst' lft' rght' op
-	  | oth -> then' := oth; failwith "lft" in let dst = match rght with
+	  | oth -> then''' := oth; failwith "then'''" in let dst = match rght with
 	    | VRF (id, typ, []) -> id
 	    | oth -> rght' := oth; failwith "rght'" in
             fprintf fd "        assign \\nxt_%s %s\n" dst rhs;
-	| oth -> then' := List.hd oth; failwith "else");
+	| oth -> then'''' := oth; failwith "then''''") lst
       | oth -> else' := oth; failwith "else");
     fprintf fd "    end\n"
 
