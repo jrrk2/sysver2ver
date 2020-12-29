@@ -204,6 +204,7 @@ and xmlattr = {
     tmpvar: (string*(string*typetable_t)) list ref;
     tmpasgn: (string*rw) list ref;
     dumpelem: bool ref;
+    arithlst: (string * string * (string * int) list * (string * string) list) list ref    
 }
 and rw =
 | UNKNOWN
@@ -241,7 +242,8 @@ and rw =
 | CND of string * rw list
 | TIM of string
 | REPL of string * int * rw list
-| MODUL of string * string * rw list * (string * (string * typetable_t)) list
+| MODUL of string * string * rw list * (string * (string * typetable_t)) list *
+    (string * string * (string * int) list * (string * string) list) list
 | BGN of string option * rw list
 | RNG of rw list
 | ALWYS of string * rw list
@@ -281,7 +283,7 @@ type itms = {
   iv: (string*(string*typetable_t*rw list*int)) list ref;
   ir: (string*string*typetable_t) list ref;
   ca: (string*rw*rw) list ref;
-  alwys: (string*rw*rw list) list ref;
+  alwys: (string*rw*rw list*string list) list ref;
   init: (string*token*rw list) list ref;
   func: (string*(string*typetable_t*rw list*itms)) list ref;
   task: (string*(string*rw list*itms)) list ref;
@@ -292,6 +294,7 @@ type itms = {
   needed: (token*string) list ref;
   remove_interfaces: bool;
   names'' : (string * typetable_t ref) list;
+  arith: (string * string * (string * int) list * (string * string) list) list ref;
 }
 
 val exprothlst : rw list ref
@@ -352,7 +355,7 @@ val ewidth : rw -> int
 val cntmembers : typmap -> arrtyp
 val findmembers : typetable_t -> arrtyp list
 val findmembers' : typetable_t -> arrtyp list * bool * bool
-val optitm : rw list -> rw list
+val optitm : string list ref -> itms -> rw list -> rw list
 val optitm' : bool -> rw list -> rw list
 val simplify_exp : xmlattr -> rw -> rw
 val simplify_exp' : rw -> (string * (string * typetable_t)) list * rw
@@ -371,3 +374,5 @@ val widmax : arrtyp list -> arrtyp list
 val widadd : arrtyp list -> arrtyp list
 val widshow : string -> 'a -> arrtyp list -> token list
 val tokencnv : int ref -> token -> string
+val smpllst : rw list ref
+val bin2str : int -> int -> string
